@@ -17,6 +17,10 @@ using Emgu.CV;
 using Emgu.CV.Structure;
 using Emgu.Util;
 using System.Windows.Forms;
+using System.Windows.Controls;
+using System.IO;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 
 namespace KinectEmguCv
 {
@@ -24,8 +28,12 @@ namespace KinectEmguCv
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     /// 
-
-
+        //  public static Image<TColor, TDepth> ToOpenCVImage<TColor, TDepth>(this Bitmap bitmap)
+        //    where TColor : struct, IColor
+        //    where TDepth : new()
+        //{
+        //    return new Image<TColor, TDepth>(bitmap);
+        //}
 
     public partial class MainWindow : Window
     {
@@ -35,13 +43,13 @@ namespace KinectEmguCv
         DepthImagePixel[] depthPixels;
         byte[] colorPixels;
 
-        /*The function to convert Windows Bitmap into OpenCv Image type*/
-        public static Image<TColor,TDepth>ToOpenCVImage<TColor, TDepth>(this Bitmap bitmap)
-            where TColor : struct, IColor
-            where TDepth : new()
-        {
-            return new Image<TColor, TDepth>(bitmap);
-        }
+        ///*The function to convert Windows Bitmap into OpenCv Image type*/
+        //public static Image<TColor,TDepth>ToOpenCVImage<TColor, TDepth>(this Bitmap bitmap)
+        //    where TColor : struct, IColor
+        //    where TDepth : new()
+        //{
+        //    return new Image<TColor, TDepth>(bitmap);
+        //}
 
         public MainWindow()
         {
@@ -98,18 +106,34 @@ namespace KinectEmguCv
 
                 colorPixels = new byte[colorFrame.PixelDataLength];
                 colorFrame.CopyPixelDataTo(colorPixels);
-                
-                /*Converting from Kinect Frame to OpenCv Image Type*/
-                Image<Bgr, Byte> kinectColorFrame;
+                colorBmp = ImageToBitmap(colorFrame);
 
+                /*Converting from Bitmap to OpenCv Image Type*/
+                Image<Bgr, Byte> kinectColorFrame = new Image<Bgr, byte>(colorBmp);
+                Image<Gray, byte> gray_image = kinectColorFrame.Convert<Gray, byte>();
 
-                ////How many pixels needed for per row basis
-                //int stride = colorFrame.Width * 4;
-
-                //colorImg.Source = BitmapSource.Create(colorFrame.Width,colorFrame.Height,96,96,PixelFormats.Bgr32,null,pixels,stride);
+                /*For Display purposes, convert back the images from OpenCV to Bitmap*/
+                colorImg.Source = ImageHelpers.ToBitmapSource(gray_image);
+              
             }
         }
 
+        /*Converting the Kinect Frames to Bitmap*/
+        Bitmap ImageToBitmap(ColorImageFrame Image)
+        {
+            byte[] pixeldata = new byte[Image.PixelDataLength];
+            Image.CopyPixelDataTo(pixeldata);
+            Bitmap bmap = new Bitmap(Image.Width, Image.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
+            BitmapData bmapdata = bmap.LockBits(
+                new System.Drawing.Rectangle(0, 0, Image.Width, Image.Height),
+                ImageLockMode.WriteOnly,
+                bmap.PixelFormat);
+            IntPtr ptr = bmapdata.Scan0;
+            Marshal.Copy(pixeldata, 0, ptr, Image.PixelDataLength);
+            bmap.UnlockBits(bmapdata);
+            return bmap;
+        }
+  
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             StopKinect(sensor);
